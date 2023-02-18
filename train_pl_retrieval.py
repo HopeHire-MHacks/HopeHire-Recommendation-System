@@ -123,7 +123,8 @@ if __name__ == '__main__':
 
     # Create a model that takes in raw query features, and
     index = tfrs.layers.factorized_top_k.BruteForce(retrieval_model.query_model)
-    # recommends movies out of the entire dataset.
+
+    # recommends listings out of the entire dataset.
     index.index_from_dataset(
         tf.data.Dataset.zip((listings_dataset.map(lambda x: x["listing_id"]).batch(100), listings_dataset.batch(100).map(retrieval_model.candidate_model)))
     )
@@ -138,10 +139,9 @@ if __name__ == '__main__':
         "patient_skills": np.array([["dancing"] * 78]),
     }
     _, listing_ids = index(pred_input)
-    print(f"Recommendations for user 1: {listing_ids[0, :10]}")
+    print(f"Recommendations for patient 1: {listing_ids[0, :10]}")
 
     # Saving Model
-
     print("\n --Saving Model -- \n")
     tf.saved_model.save(index, SAVE_PATH)
 
