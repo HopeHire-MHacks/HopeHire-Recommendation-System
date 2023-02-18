@@ -108,7 +108,7 @@ def predict_employer(employer_id):
 
     req_ids = [int(float(x.decode('utf-8'))) for x in patient_ids.tolist()]
     
-    req_data = send_get_request_with_form(f"{BACKEND_URL}/employee/mass/ids", data={ "ids": patient_ids.tolist() }).content
+    req_data = send_get_request_with_form(f"{BACKEND_URL}/employees/mass/ids", data={ "ids": req_ids }).content
     print(req_data)
     patients = json.loads(req_data)['data']  
     patients_df = pd.DataFrame(patients)
@@ -117,17 +117,17 @@ def predict_employer(employer_id):
     scores = model({
         "patient_id": np.array(patient_ids), 
         "patient_age": patients_df['dateOfBirth'].apply(get_age_from).astype(np.float32),
-        "patient_dialysis_freq": patients_df['dateOfBirth'].astype(np.float32),
+        "patient_dialysis_freq": patients_df['dialysisFrequency'].astype(np.float32),
         "patient_dialysis_latitude": patients_df['preferredLocation'].apply(lambda x: x[0]).astype(np.float32),
         "patient_dialysis_longitude": patients_df['preferredLocation'].apply(lambda x: x[1]).astype(np.float32),
-        "patient_skills": patients_df['skills'].apply(get_skills),
+        "patient_skills": patients_df['skills'].apply(lambda x: get_skills(x)[:2]),
 
         "listing_id": listings_df,
         "employer_num_employees": np.array([employer['numberOfEmployees']] * len(listings)).astype(np.float32),
         "listing_industry_type": listings_df['industryType'].apply(lambda x: get_industry_type(x)).astype(str),
         "listing_loc_latitude": listings_df['address'].apply(lambda x: x[0]).astype(np.float32),
         "listing_loc_longitude": listings_df['address'].apply(lambda x: x[1]).astype(np.float32),
-        "listing_skills": np.array(listings_df['skills'].apply(lambda x: get_skills(x)).tolist()),
+        "listing_skills": np.array(listings_df['skills'].apply(lambda x: get_skills(x)[:2]).tolist()),
 
         "patient_listing_timetable": np.array(patients_df['timetable_overlap'], dtype=np.float32),
     }) 
