@@ -15,7 +15,7 @@ INDUSTRY_TYPES = [
     "Materials",
     "Media and Entertainment",
     "Pharmaceuticals, Biotechnology, and Life Sciences",
-    "Real Estate"
+    "Real Estate",
     "Retailing",
     "Semiconductors and Semiconductor Equipment",
     "Software and Services",
