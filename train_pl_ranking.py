@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 from ast import literal_eval
 from datetime import datetime
+import os
+import json
 
 from models.patient_listing_retrieval import PatientListingRetrievalModel
 
@@ -93,6 +95,8 @@ def load_patient_data(csv_path):
 if __name__ == '__main__':
     print("**GPU ENABLED**" if len(tf.config.list_physical_devices('GPU')) >= 1 else "**NO GPU FOUND**")
 
+    SAVE_PATH = "./saved_models/patient_listing_retrieval_" + datetime.now().strftime("%Y%m%d_%H%M")
+
     # Load data
     print("\n -- Loading data -- \n")
     unique_patient_ids, train_data, test_data = load_data("./data/patient_to_listings_full.csv")
@@ -135,3 +139,11 @@ if __name__ == '__main__':
     }
     _, listing_ids = index(pred_input)
     print(f"Recommendations for user 1: {listing_ids[0, :10]}")
+
+    # Saving Model
+
+    print("\n --Saving Model -- \n")
+    tf.saved_model.save(index, SAVE_PATH)
+
+    with open(os.path.join(SAVE_PATH, "example_input.json"), "w+") as f:
+        json.dump({ x: pred_input[x].tolist() for x in pred_input}, f)
