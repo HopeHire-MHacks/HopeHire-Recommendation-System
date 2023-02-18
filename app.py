@@ -10,7 +10,7 @@ from utils.data_conversion import get_skills, get_age_from, get_industry_type
 import flask
 app = flask.Flask(__name__)
 
-BACKEND_URL = "http://localhost:8000"
+BACKEND_URL = os.getenv("BACKEND_URL")
 
 LISTING_PATIENT_RETRIEVAL_MODEL = "saved_models/listing_patient_retrieval_20230218_1316"
 PATIENT_LISTING_RETRIEVAL_MODEL = "saved_models/patient_listing_retrieval_20230218_1036"
