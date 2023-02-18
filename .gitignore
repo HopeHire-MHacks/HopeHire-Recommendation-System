@@ -1,0 +1,5 @@
+/venv/
+/misc/
+/data/
+
+*.pyc
