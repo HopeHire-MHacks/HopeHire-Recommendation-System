@@ -122,7 +122,7 @@ def predict_employer(employer_id):
         "patient_dialysis_longitude": patients_df['preferredLocation'].apply(lambda x: x[1]).astype(np.float32),
         "patient_skills": patients_df['skills'].apply(lambda x: get_skills(x)[:2]),
 
-        "listing_id": listings_df,
+        "listing_id": listings_df['id'].astype(str),
         "employer_num_employees": np.array([employer['numberOfEmployees']] * len(listings)).astype(np.float32),
         "listing_industry_type": listings_df['industryType'].apply(lambda x: get_industry_type(x)).astype(str),
         "listing_loc_latitude": listings_df['address'].apply(lambda x: x[0]).astype(np.float32),
@@ -138,6 +138,62 @@ def predict_employer(employer_id):
     data['patient_ids'] = list(map(lambda x: int(x.decode('utf-8')), patient_ids.tolist()))
 
     
+    return flask.jsonify(data)
+
+@app.route("/job/<int:listing_id>", methods=["GET"])
+def predict_employer(listing_id):
+    data = { 
+        "success": True, 
+        "listing_id": listing_id,
+        "patient_ids": [],
+    }
+
+    req_data = send_get_request(f"{BACKEND_URL}/job/{listing_id}").content
+    listing = json.loads(req_data)['data']
+    listings_df = pd.DataFrame([listing])
+
+    model = tf.saved_model.load(LISTING_PATIENT_RETRIEVAL_MODEL)
+    _, patient_ids = model({
+        "listing_id": listings_df['id'].apply(lambda x: str(x)).astype(str), 
+        "employer_num_employees": listings_df['employer'].apply(lambda x: x['numberOfEmployees']).astype(np.float32),
+        "listing_industry_type": listings_df['industryType'].apply(lambda x: get_industry_type(x)).astype(str),
+        "listing_loc_latitude": listings_df['address'].apply(lambda x: x[0]).astype(np.float32),
+        "listing_loc_longitude": listings_df['address'].apply(lambda x: x[1]).astype(np.float32),
+        "listing_skills": np.array(listings_df['skills'].apply(lambda x: get_skills(x)).tolist()),
+    }) 
+    patient_ids = np.unique(patient_ids.numpy().flatten())
+    tf.keras.backend.clear_session()
+
+    req_ids = [int(float(x.decode('utf-8'))) for x in patient_ids.tolist()]
+    
+    req_data = send_get_request_with_form(f"{BACKEND_URL}/employees/mass/ids", data={ "ids": req_ids }).content
+    patients = json.loads(req_data)['data']  
+    patients_df = pd.DataFrame(patients)
+
+    model = tf.saved_model.load(RANKING_MODEL)
+    scores = model({
+        "patient_id": patients_df['id'].astype(str), 
+        "patient_age": patients_df['dateOfBirth'].apply(get_age_from).astype(np.float32),
+        "patient_dialysis_freq": patients_df['dialysisFrequency'].astype(np.float32),
+        "patient_dialysis_latitude": patients_df['preferredLocation'].apply(lambda x: x[0]).astype(np.float32),
+        "patient_dialysis_longitude": patients_df['preferredLocation'].apply(lambda x: x[1]).astype(np.float32),
+        "patient_skills": np.array(patients_df['skills'].apply(lambda x: get_skills(x)[:2]).tolist()).astype(str),
+
+        "listing_id": np.array([listing_id] * len(patients_df)),
+        "employer_num_employees": np.array([listing['employer']['numberOfEmployees']] * len(patients_df)).astype(np.float32),
+        "listing_industry_type": np.array([listings_df['industryType'].apply(lambda x: get_industry_type(x)).astype(str)[0]] * len(patients_df)),
+        "listing_loc_latitude": np.array([listings_df['address'].apply(lambda x: x[0]).astype(np.float32)[0]] * len(patients_df)).astype(np.float32),
+        "listing_loc_longitude": np.array([listings_df['address'].apply(lambda x: x[1]).astype(np.float32)[0]] * len(patients_df)).astype(np.float32),
+        "listing_skills": np.array([listings_df['skills'].apply(lambda x: get_skills(x)[:2]).tolist()[0]] * len(patients_df)).astype(str),
+
+        "patient_listing_timetable": np.array(patients_df['timetable_overlap'], dtype=np.float32),
+    }) 
+    scores = scores.numpy().flatten()
+    tf.keras.backend.clear_session()
+
+    req_ids = np.array(req_ids)[np.argsort(scores)]
+    data['patient_ids'] = req_ids.tolist()
+
     return flask.jsonify(data)
 
 
